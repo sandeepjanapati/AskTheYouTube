@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AskTheYouTube | AI Video Assistant</title>
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="styles.css">
+    
+    <!-- Fonts & Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Markdown Parser -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+
+    <div id="app-container">
+        
+        <!-- HEADER -->
+        <header>
+            <div class="logo">
+                <i class="fa-brands fa-youtube" style="color: #ff0000;"></i> AskTheYouTube
+            </div>
+
+            <button id="new-chat-btn" class="secondary-btn hidden">
+                <i class="fa-solid fa-plus"></i> <span class="btn-text">New Chat</span>
+            </button>
+        </header>
+
+        <!-- SECTION A: VIDEO INPUT -->
+        <section id="video-section" class="active-section">
+            <div class="card input-card">
+                <h2>Analyze a Video</h2>
+                <p class="subtitle">Paste a YouTube link to start chatting with the content.</p>
+                
+                <div class="input-group">
+                    <input type="text" id="youtube-url" placeholder="https://youtube.com/..." autocomplete="off">
+                </div>
+                
+                <button id="process-btn" class="primary-btn">
+                    <span>Load Video</span>
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </section>
+
+        <!-- SECTION B: FEEDBACK & STATUS -->
+        <section id="status-section" class="hidden">
+            <div class="status-container">
+                <div class="loader"></div>
+                <p id="status-text">Connecting to server...</p>
+                
+                <div id="error-box" class="hidden">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span id="error-message"></span>
+                    <button id="retry-btn">Try Again</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION C: CHAT WORKSPACE -->
+        <section id="chat-section" class="hidden">
+            
+            <div id="chat-history" class="chat-container">
+                <div class="message bot-message">
+                    <div class="message-content">
+                        <p><strong>Video Loaded!</strong> <br> I've analyzed the transcript. You can now ask me anything about this video.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <div class="input-wrapper">
+                    <textarea id="query-input" placeholder="Ask a question..." rows="1"></textarea>
+                    <button id="send-btn" disabled>
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

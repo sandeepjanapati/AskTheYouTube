@@ -1,0 +1,21 @@
+# Exclude Git files
+.git
+.gitignore
+
+# Exclude Local Virtual Environment
+.venv
+venv
+env
+
+# Exclude Frontend (It is hosted on Firebase, not here)
+frontend
+.firebase
+
+# Exclude Python Cache
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+pip-log.txt
+test.ipynb

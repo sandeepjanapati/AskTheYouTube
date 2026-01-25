@@ -1,0 +1,20 @@
+# Web Framework
+fastapi
+uvicorn
+pydantic
+
+# Google Cloud & AI
+google-cloud-aiplatform
+google-cloud-secret-manager
+google-auth
+
+# Vector Database
+pinecone
+
+# Video Processing & Logic
+youtube-transcript-api
+langchain-text-splitters
+langchain-core
+
+# Utilities
+requests

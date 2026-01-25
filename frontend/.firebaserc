@@ -1,0 +1,18 @@
+{
+  "projects": {
+    "default": "asktheyoutube"
+  },
+  "targets": {
+    "asktheyoutube": {
+      "hosting": {
+        "askyt": [
+          "askyt"
+        ],
+        "askyt-site": [
+          "ask-yt"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

@@ -1,0 +1,33 @@
+# --- Security & Secrets ---
+.env
+.env.local
+utils/secrets.py
+*.json
+*.pem
+!frontend/firebase.json
+
+# --- Python & Environments ---
+__pycache__/
+.venv/
+venv/
+ENV/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# --- Notebooks & Data ---
+.ipynb_checkpoints
+test.ipynb
+*.csv
+*.log
+
+# --- Frontend & Firebase ---
+frontend/.firebase/
+frontend/public/firebase-debug.log
+ui-debug.log
+
+# --- IDE & System ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
