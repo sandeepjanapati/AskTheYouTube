@@ -1,0 +1,31 @@
+# This file specifies files that are NOT submitted to Cloud Build.
+# Cloud Build uses this instead of .gitignore when this file exists.
+
+# --- Python & Environments ---
+__pycache__/
+.venv/
+venv/
+ENV/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# --- Notebooks & Data ---
+.ipynb_checkpoints
+test.ipynb
+*.csv
+*.log
+
+# --- Frontend (not needed for backend build) ---
+frontend/
+
+# --- IDE & System ---
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# --- Local only files ---
+.env
+.env.local
+*.pem

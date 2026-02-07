@@ -5,8 +5,8 @@
 
 // CONFIGURATION
 // TODO: Replace with your actual Cloud Run URL after backend deployment
-// const API_BASE_URL = "http://localhost:8000";
-const API_BASE_URL = "https://asktheyoutube-backend-923028230772.us-central1.run.app"; 
+// const API_BASE_URL = "http://localhost:8080";
+const API_BASE_URL = "https://asktheyoutube-backend-923028230772.us-central1.run.app";
 
 // STATE MANAGEMENT
 const state = {
@@ -21,19 +21,19 @@ const elements = {
     videoSection: document.getElementById('video-section'),
     statusSection: document.getElementById('status-section'),
     chatSection: document.getElementById('chat-section'),
-    
+
     // Inputs & Buttons
     urlInput: document.getElementById('youtube-url'),
     processBtn: document.getElementById('process-btn'),
     queryInput: document.getElementById('query-input'),
     sendBtn: document.getElementById('send-btn'),
-    
+
     // Status Elements
     statusText: document.getElementById('status-text'),
     errorBox: document.getElementById('error-box'),
     errorMessage: document.getElementById('error-message'),
     retryBtn: document.getElementById('retry-btn'),
-    
+
     newChatBtn: document.getElementById('new-chat-btn'),
 
     // Chat Area
@@ -53,10 +53,10 @@ function loadSession() {
     if (savedVideoId) {
         state.currentVideoId = savedVideoId;
         state.chatHistory = savedHistory ? JSON.parse(savedHistory) : [];
-        
+
         // Restore UI to Chat Mode
         showSection('chat');
-        
+
         // Render saved messages
         // Clear default welcome message if history exists
         if (state.chatHistory.length > 0) {
@@ -67,7 +67,7 @@ function loadSession() {
         state.chatHistory.forEach(msg => {
             appendMessageToUI(msg.role, msg.content, false); // false = don't save again
         });
-        
+
         scrollToBottom();
     }
 }
@@ -84,7 +84,7 @@ function showSection(sectionName) {
     elements.videoSection.classList.add('hidden');
     elements.statusSection.classList.add('hidden');
     elements.chatSection.classList.add('hidden');
-    
+
     // Show Target
     if (sectionName === 'video') elements.videoSection.classList.remove('hidden');
     if (sectionName === 'status') elements.statusSection.classList.remove('hidden');
@@ -137,11 +137,11 @@ elements.queryInput.addEventListener('keydown', (e) => {
 });
 
 // 5. Auto-resize Textarea
-elements.queryInput.addEventListener('input', function() {
+elements.queryInput.addEventListener('input', function () {
     this.style.height = 'auto';
     this.style.height = (this.scrollHeight) + 'px';
-    if(this.value === '') this.style.height = 'auto'; 
-    
+    if (this.value === '') this.style.height = 'auto';
+
     // Enable/Disable button
     elements.sendBtn.disabled = this.value.trim().length === 0;
 });
@@ -159,7 +159,7 @@ async function handleProcessVideo() {
         alert("Configuration Error: Please open app.js and replace 'YOUR_CLOUD_RUN_API_URL' with your actual Cloud Run URL.");
         return;
     }
-    
+
     if (!url) {
         alert("Please enter a YouTube URL");
         return;
@@ -176,9 +176,9 @@ async function handleProcessVideo() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: url })
         });
-        
 
-         // --- SAFE RESPONSE HANDLING START ---
+
+        // --- SAFE RESPONSE HANDLING START ---
         // 1. Check if response is JSON
         const contentType = response.headers.get("content-type");
         let data;
@@ -189,12 +189,12 @@ async function handleProcessVideo() {
         } else {
             // It is NOT JSON (likely HTML error or empty), read as text
             const text = await response.text();
-            
+
             // If response was not OK, throw the text as error
             if (!response.ok) {
                 throw new Error(text || `Server Error: ${response.status} ${response.statusText}`);
             }
-            
+
             // If response WAS OK but not JSON, this is unexpected for your API
             throw new Error("Invalid Server Response: Expected JSON but got text/html.");
         }
@@ -203,11 +203,11 @@ async function handleProcessVideo() {
             throw new Error(data.detail || "Failed to process video");
         }
         // --- SAFE RESPONSE HANDLING END ---
-        
+
         // Success
         state.currentVideoId = data.video_id;
         state.isProcessing = false;
-        
+
         saveState();
         showSection('chat');
 
@@ -224,7 +224,7 @@ async function handleProcessVideo() {
 
 async function handleSendMessage() {
     const query = elements.queryInput.value.trim();
-    
+
     if (!query || state.isProcessing) return;
 
     // 1. UI Updates immediately
@@ -232,7 +232,7 @@ async function handleSendMessage() {
     elements.queryInput.value = '';
     elements.queryInput.style.height = 'auto';
     elements.sendBtn.disabled = true;
-    
+
     // Add User msg to history
     state.chatHistory.push({ role: 'user', content: query });
     saveState();
@@ -267,7 +267,7 @@ async function handleSendMessage() {
 
         // 4. Render Bot Response
         appendMessageToUI('model', botResponse);
-        
+
         // Update History
         state.chatHistory.push({ role: 'model', content: botResponse });
         saveState();
@@ -292,7 +292,7 @@ function handleNewChat() {
     elements.urlInput.value = '';
     elements.queryInput.value = '';
     elements.sendBtn.disabled = true;
-    
+
     // 4. Reset Chat History UI
     // We recreate the default welcome message
     elements.chatHistoryContainer.innerHTML = `
@@ -312,24 +312,24 @@ function handleNewChat() {
 
 function appendMessageToUI(role, text, animate = true) {
     const isUser = role === 'user';
-    
+
     const msgDiv = document.createElement('div');
     msgDiv.classList.add('message');
     msgDiv.classList.add(isUser ? 'user-message' : 'bot-message');
-    
+
     // Markdown Parsing for Bot
     // using 'marked' library included in index.html
     const contentHtml = isUser ? text : marked.parse(text);
-    
+
     msgDiv.innerHTML = `<div class="message-content">${contentHtml}</div>`;
-    
+
     elements.chatHistoryContainer.appendChild(msgDiv);
     scrollToBottom();
 }
 
 function showTypingIndicator() {
     const id = 'typing-' + Date.now();
-    
+
     const msgDiv = document.createElement('div');
     msgDiv.id = id;
     msgDiv.classList.add('message', 'bot-message');
@@ -338,7 +338,7 @@ function showTypingIndicator() {
             <i class="fa-solid fa-circle-notch fa-spin"></i> Thinking...
         </div>
     `;
-    
+
     elements.chatHistoryContainer.appendChild(msgDiv);
     return id;
 }

@@ -12,6 +12,8 @@ from services.pinecone_client import PineconeClient
 from services.embedding_service import EmbeddingService
 from services.retrieval_service import RetrievalService
 from services.llm_service import LLMService
+from services.intent_classifier import IntentClassifier, QueryIntent
+from services.summary_service import SummaryService
 
 # --- CONFIGURATION ---
 # Configure logging to show up in Cloud Run logs
@@ -29,8 +31,7 @@ app = FastAPI(title="AskTheYouTube API", version="1.0.0")
 origins = [
     "http://localhost:5000",                # Local Firebase Serve
     "http://127.0.0.1:5500",                # Local Live Server (VS Code)
-    "https://asktheyoutube.web.app",        # Your Production Firebase URL
-    "https://asktheyoutube.firebaseapp.com", # Alternate Firebase Domain
+    "http://127.0.0.1:5501",                # Local Live Server (alternate port)
     "https://ask-yt.web.app",
     "https://ask-yt.firebaseapp.com"
 ]
@@ -74,13 +75,15 @@ chunking_service: ChunkingService = None
 embedding_service: EmbeddingService = None
 retrieval_service: RetrievalService = None
 llm_service: LLMService = None
+intent_classifier: IntentClassifier = None
+summary_service: SummaryService = None
 
 @app.on_event("startup")
 async def startup_event():
     """
     Initializes connections to Google Cloud and Pinecone when the server starts.
     """
-    global youtube_service, chunking_service, embedding_service, retrieval_service, llm_service, pinecone_client, vertex_client
+    global youtube_service, chunking_service, embedding_service, retrieval_service, llm_service, pinecone_client, vertex_client, intent_classifier, summary_service
     
     try:
         logger.info("Starting up: Initializing Services...")
@@ -98,6 +101,10 @@ async def startup_event():
         embedding_service = EmbeddingService(vertex_client, pinecone_client)
         retrieval_service = RetrievalService(vertex_client, pinecone_client)
         llm_service = LLMService(vertex_client)
+        
+        # 3. Initialize Intent Classification and Summary Services
+        intent_classifier = IntentClassifier()
+        summary_service = SummaryService(vertex_client, pinecone_client)
         
         logger.info("All services initialized successfully.")
 
@@ -166,39 +173,65 @@ async def process_video(request: VideoRequest):
 @app.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     """
-    Step 4-5 Orchestration:
-    1. Retrieve relevant context (RAG)
-    2. Generate Answer via Gemini
+    Intelligent Q&A Orchestration:
+    1. Classify user intent (full summary vs specific question)
+    2. Route to appropriate handler:
+       - Full summary → Hierarchical summarization of entire video
+       - Specific query → RAG-based retrieval and answer generation
     """
     try:
         if not request.query or not request.video_id:
             raise HTTPException(status_code=400, detail="Query and Video ID are required.")
 
-        # 1. Retrieval (Semantic Search)
-        context_text, sources = retrieval_service.get_context(request.query, request.video_id)
+        # 1. Classify Intent using lightweight LLM
+        intent = intent_classifier.classify(request.query)
+        logger.info(f"Query intent classified as: {intent.value}")
         
-        if not context_text:
-            # Fallback if no context found (optional: could let LLM handle it)
-            logger.warning(f"No context found for video {request.video_id}")
+        # 2. Route based on intent
+        if intent == QueryIntent.FULL_VIDEO_SUMMARY:
+            # Full video summary: Use hierarchical summarization
+            logger.info(f"Processing full video summary request for {request.video_id}")
+            summary, sources = summary_service.generate_full_summary(request.video_id)
+            
+            if not summary:
+                return ChatResponse(
+                    response="I couldn't generate a summary. The video transcript may not be available.",
+                    sources=[]
+                )
+            
             return ChatResponse(
-                response="I couldn't find any relevant information in this video's transcript to answer your question.",
-                sources=[]
+                response=summary,
+                sources=sources
+            )
+        
+        else:
+            # Specific query: Use RAG (Retrieval Augmented Generation)
+            logger.info(f"Processing specific query for {request.video_id}")
+            
+            # Retrieval (Semantic Search)
+            context_text, sources = retrieval_service.get_context(request.query, request.video_id)
+            
+            if not context_text:
+                logger.warning(f"No context found for video {request.video_id}")
+                return ChatResponse(
+                    response="I couldn't find any relevant information in this video's transcript to answer your question.",
+                    sources=[]
+                )
+
+            # Convert Pydantic models to dicts for LLM Service
+            history_dicts = [msg.dict() for msg in request.history]
+
+            # Generation (LLM)
+            answer = llm_service.generate_answer(
+                query=request.query,
+                context=context_text,
+                chat_history=history_dicts
             )
 
-        # 2. Convert Pydantic models to dicts for LLM Service
-        history_dicts = [msg.dict() for msg in request.history]
-
-        # 3. Generation (LLM)
-        answer = llm_service.generate_answer(
-            query=request.query,
-            context=context_text,
-            chat_history=history_dicts
-        )
-
-        return ChatResponse(
-            response=answer,
-            sources=sources # Optional: Front-end can use this to show timestamps
-        )
+            return ChatResponse(
+                response=answer,
+                sources=sources
+            )
 
     except Exception as e:
         logger.error(f"Error in chat endpoint: {e}")
