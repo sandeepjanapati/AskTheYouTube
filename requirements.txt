@@ -1,20 +1,20 @@
 # Web Framework
-fastapi
-uvicorn
-pydantic
+fastapi>=0.115.0,<1.0.0
+uvicorn>=0.30.0,<1.0.0
+pydantic>=2.0.0,<3.0.0
 
 # Google Cloud & AI
-google-cloud-aiplatform
-google-cloud-secret-manager
-google-auth
+google-cloud-aiplatform>=1.60.0,<2.0.0
+google-cloud-secret-manager>=2.20.0,<3.0.0
+google-auth>=2.30.0,<3.0.0
 
 # Vector Database
-pinecone
+pinecone>=5.0.0,<6.0.0
 
 # Video Processing & Logic
-youtube-transcript-api
-langchain-text-splitters
-langchain-core
+youtube-transcript-api>=0.6.0,<1.0.0
+langchain-text-splitters>=0.2.0,<1.0.0
+langchain-core>=0.2.0,<1.0.0
 
 # Utilities
-requests
+requests>=2.31.0,<3.0.0

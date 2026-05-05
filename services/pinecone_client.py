@@ -1,14 +1,8 @@
-from random import random
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 import os
 import logging
 from pinecone import Pinecone
 from utils.secrets import SecretManager
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 class PineconeClient:
@@ -58,7 +52,7 @@ class PineconeClient:
         """
         try:
             # Create a dummy vector of 0.0s matching the model dimension
-            dummy_vector = [1.0] * 768
+            dummy_vector = [1.0 / (768 ** 0.5)] * 768
             
             response = self.index.query(
                 vector=dummy_vector,

@@ -1,14 +1,8 @@
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 import logging
-import math
 from typing import List, Dict, Any, Tuple
 from services.vertex_client import VertexClient
 from services.pinecone_client import PineconeClient
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 
@@ -24,8 +18,8 @@ class SummaryService:
     This scales to videos of any length.
     """
     
-    # Pinecone max results per query
-    PINECONE_MAX_TOP_K = 10000
+    # Pinecone max results per query (safe for free tier)
+    PINECONE_MAX_TOP_K = 1000
     
     # Approximate tokens per chunk (conservative estimate)
     # Typical chunk ~500 chars ≈ 125 tokens
@@ -37,6 +31,12 @@ class SummaryService:
     
     # Max characters for context in a single LLM call
     MAX_CONTEXT_CHARS = 60000  # ~15k tokens, leaves room for prompt overhead
+    
+    # Maximum number of batches to process (prevents hanging on extremely long videos)
+    MAX_BATCHES = 20
+    
+    # Per-batch timeout in seconds
+    BATCH_TIMEOUT_SECONDS = 60
     
     SUMMARY_PROMPT = """You are a professional video content summarizer.
 
@@ -209,12 +209,23 @@ Provide the unified comprehensive summary:"""
             batches = self._batch_chunks(all_chunks)
             logger.info(f"Split into {len(batches)} batches")
             
-            # Summarize each batch
+            # Summarize each batch (with cap and timeout protection)
             batch_summaries = []
-            for i, batch in enumerate(batches):
-                logger.info(f"Summarizing batch {i+1}/{len(batches)}")
-                batch_summary = self._summarize_batch(batch)
-                batch_summaries.append(batch_summary)
+            batches_to_process = batches[:self.MAX_BATCHES]
+            if len(batches) > self.MAX_BATCHES:
+                logger.warning(
+                    f"Video {video_id} has {len(batches)} batches, capping at {self.MAX_BATCHES} "
+                    f"to avoid excessive processing time."
+                )
+            
+            for i, batch in enumerate(batches_to_process):
+                logger.info(f"Summarizing batch {i+1}/{len(batches_to_process)}")
+                try:
+                    batch_summary = self._summarize_batch(batch)
+                    batch_summaries.append(batch_summary)
+                except Exception as e:
+                    logger.error(f"Batch {i+1} summarization failed: {e}. Skipping.")
+                    continue
             
             # Combine all batch summaries
             if len(batch_summaries) == 1:

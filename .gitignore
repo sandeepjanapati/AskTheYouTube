@@ -1,7 +1,6 @@
 # --- Security & Secrets ---
 .env
 .env.local
-utils/secrets.py
 *.json
 *.pem
 !frontend/firebase.json

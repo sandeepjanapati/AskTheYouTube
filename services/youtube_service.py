@@ -6,8 +6,6 @@ from typing import List, Dict, Optional, Any
 from utils.secrets import SecretManager
 from services.vertex_client import VertexClient 
 
-# Configure structured logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 class VideoProcessingError(Exception):
@@ -82,6 +80,9 @@ class YouTubeService:
         """
         if not text:
             return ""
+        
+        # Ensure text is a string (API may return non-string types)
+        text = str(text)
 
         # 1. Decode HTML entities
         cleaned = html.unescape(text)
@@ -138,19 +139,30 @@ class YouTubeService:
                 raise VideoProcessingError(f"RapidAPI error: {response.status_code}")
 
             data = response.json()
-            logger.debug(f"API response keys: {list(data.keys())}")
+            logger.info(f"API response keys: {list(data.keys())}, types: { {k: type(v).__name__ for k,v in data.items()} }")
 
             # Use the structure that worked before
             raw_segments = data.get("transcript", [])
-            if not isinstance(raw_segments, list) or not raw_segments:
-                error_msg = data.get("error") or data.get("message") or "Empty or unexpected format"
-                logger.warning(f"No valid transcript segments: {error_msg}")
+            if not isinstance(raw_segments, list) or len(raw_segments) == 0:
+                error_msg = str(data.get("error") or data.get("message") or "Empty or unexpected format")
+                logger.warning(f"No valid transcript segments (got type {type(raw_segments).__name__}): {error_msg}")
                 raise TranscriptUnavailableError("No transcript found in API response")
 
             cleaned = []
+            
+            # Debug: Log first segment structure to identify API changes
+            if raw_segments:
+                first = raw_segments[0]
+                logger.info(f"First segment type: {type(first).__name__}, content: {str(first)[:300]}")
+            
             for segment in raw_segments:
-                raw_text = segment.get("text", "")
-                start = segment.get("offset", 0.0)  # ← this API uses "offset"
+                # Handle case where segments might not be dicts (API structure changes)
+                if not isinstance(segment, dict):
+                    logger.warning(f"Skipping non-dict segment: type={type(segment).__name__}")
+                    continue
+                    
+                raw_text = str(segment.get("text", ""))  # Force to string — API may return int/None
+                start = segment.get("offset", segment.get("start", 0.0))  # Try both field names
 
                 clean_txt = self._clean_text(raw_text)
                 if clean_txt:

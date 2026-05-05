@@ -4,9 +4,13 @@
  */
 
 // CONFIGURATION
-// TODO: Replace with your actual Cloud Run URL after backend deployment
-// const API_BASE_URL = "http://localhost:8080";
-const API_BASE_URL = "https://asktheyoutube-backend-923028230772.us-central1.run.app";
+// Auto-detect environment: use localhost for local dev, Cloud Run URL for production
+const API_BASE_URL = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+    ? "http://localhost:8080"
+    : "https://asktheyoutube-backend-rsusfz5abq-uc.a.run.app";
+
+// Maximum number of chat messages to send as history (prevents unbounded growth)
+const MAX_HISTORY_MESSAGES = 20;
 
 // STATE MANAGEMENT
 const state = {
@@ -39,6 +43,18 @@ const elements = {
     // Chat Area
     chatHistoryContainer: document.getElementById('chat-history')
 };
+
+// --- HTML SANITIZATION ---
+
+/**
+ * Escapes HTML special characters to prevent XSS attacks.
+ * Used for user-generated content before inserting into DOM.
+ */
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.appendChild(document.createTextNode(text));
+    return div.innerHTML;
+}
 
 // --- INITIALIZATION ---
 
@@ -150,15 +166,38 @@ elements.queryInput.addEventListener('input', function () {
 elements.newChatBtn.addEventListener('click', handleNewChat);
 
 
+// --- SAFE RESPONSE PARSER ---
+
+/**
+ * Safely parses an API response, handling both JSON and non-JSON error responses.
+ * Returns the parsed JSON data or throws a descriptive error.
+ */
+async function parseApiResponse(response) {
+    const contentType = response.headers.get("content-type");
+    let data;
+
+    if (contentType && contentType.indexOf("application/json") !== -1) {
+        data = await response.json();
+    } else {
+        const text = await response.text();
+        if (!response.ok) {
+            throw new Error(text || `Server Error: ${response.status} ${response.statusText}`);
+        }
+        throw new Error("Invalid Server Response: Expected JSON but got text/html.");
+    }
+
+    if (!response.ok) {
+        throw new Error(data.detail || `Server Error: ${response.status}`);
+    }
+
+    return data;
+}
+
+
 // --- LOGIC HANDLERS ---
 
 async function handleProcessVideo() {
     const url = elements.urlInput.value.trim();
-
-    if (API_BASE_URL.includes("YOUR_CLOUD_RUN_API_URL")) {
-        alert("Configuration Error: Please open app.js and replace 'YOUR_CLOUD_RUN_API_URL' with your actual Cloud Run URL.");
-        return;
-    }
 
     if (!url) {
         alert("Please enter a YouTube URL");
@@ -177,32 +216,7 @@ async function handleProcessVideo() {
             body: JSON.stringify({ url: url })
         });
 
-
-        // --- SAFE RESPONSE HANDLING START ---
-        // 1. Check if response is JSON
-        const contentType = response.headers.get("content-type");
-        let data;
-
-        if (contentType && contentType.indexOf("application/json") !== -1) {
-            // It is JSON, parse it safely
-            data = await response.json();
-        } else {
-            // It is NOT JSON (likely HTML error or empty), read as text
-            const text = await response.text();
-
-            // If response was not OK, throw the text as error
-            if (!response.ok) {
-                throw new Error(text || `Server Error: ${response.status} ${response.statusText}`);
-            }
-
-            // If response WAS OK but not JSON, this is unexpected for your API
-            throw new Error("Invalid Server Response: Expected JSON but got text/html.");
-        }
-        // 2. Handle API Level Errors (Non-200 status codes)
-        if (!response.ok) {
-            throw new Error(data.detail || "Failed to process video");
-        }
-        // --- SAFE RESPONSE HANDLING END ---
+        const data = await parseApiResponse(response);
 
         // Success
         state.currentVideoId = data.video_id;
@@ -243,10 +257,16 @@ async function handleSendMessage() {
 
     // 3. API Call
     try {
+        // Cap history to last N messages to prevent unbounded growth (#28)
+        const historyToSend = state.chatHistory.slice(
+            Math.max(0, state.chatHistory.length - 1 - MAX_HISTORY_MESSAGES),
+            state.chatHistory.length - 1  // Exclude current query (backend receives it separately)
+        );
+
         const payload = {
             query: query,
             video_id: state.currentVideoId,
-            history: state.chatHistory.slice(0, -1) // Send history excluding current query (optional, depends on backend logic)
+            history: historyToSend
         };
 
         const response = await fetch(`${API_BASE_URL}/chat`, {
@@ -258,12 +278,9 @@ async function handleSendMessage() {
         // Remove typing indicator
         removeTypingIndicator(typingId);
 
-        if (!response.ok) {
-            throw new Error("Failed to get response");
-        }
-
-        const data = await response.json();
-        const botResponse = data.response; // Assuming backend returns { "response": "..." }
+        // Use the safe parser (handles JSON & non-JSON errors)
+        const data = await parseApiResponse(response);
+        const botResponse = data.response;
 
         // 4. Render Bot Response
         appendMessageToUI('model', botResponse);
@@ -274,7 +291,8 @@ async function handleSendMessage() {
 
     } catch (error) {
         removeTypingIndicator(typingId);
-        appendMessageToUI('model', "**Error:** I couldn't reach the server. Please try again.");
+        console.error("Chat Error:", error);
+        appendMessageToUI('model', `**Error:** ${escapeHtml(error.message || "I couldn't reach the server. Please try again.")}`);
     }
 }
 
@@ -317,9 +335,10 @@ function appendMessageToUI(role, text, animate = true) {
     msgDiv.classList.add('message');
     msgDiv.classList.add(isUser ? 'user-message' : 'bot-message');
 
-    // Markdown Parsing for Bot
-    // using 'marked' library included in index.html
-    const contentHtml = isUser ? text : marked.parse(text);
+    // Sanitize content:
+    // - User messages: escape HTML to prevent XSS
+    // - Bot messages: parse markdown (marked.parse handles code blocks etc.)
+    const contentHtml = isUser ? escapeHtml(text) : marked.parse(text);
 
     msgDiv.innerHTML = `<div class="message-content">${contentHtml}</div>`;
 

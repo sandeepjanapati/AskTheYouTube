@@ -1,8 +1,4 @@
-import sys
 import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-import time
 import logging
 from typing import List, Optional
 import vertexai
@@ -10,8 +6,6 @@ from vertexai.language_models import TextEmbeddingModel, TextEmbeddingInput
 from vertexai.generative_models import GenerativeModel, GenerationConfig, SafetySetting
 from utils.secrets import SecretManager
 
-
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 class VertexClient:
@@ -84,7 +78,7 @@ class VertexClient:
             # Configuration for RAG: Low temperature for factual grounding
             config = GenerationConfig(
                 temperature=0.2,
-                max_output_tokens=1024,
+                max_output_tokens=8192,
                 top_p=0.8,
                 top_k=40
             )
@@ -103,14 +97,16 @@ class VertexClient:
                 # Add others as needed
             ]
 
-            # If system instruction is provided specifically
+            # If system instruction is provided, create a temporary model with it
             if system_instruction:
-                # Note: System instructions are usually set at model init or via specific methods depending on SDK version.
-                # For simplicity in this wrapper, we often prepend it to the prompt or use the new 'system_instruction' param if re-initializing.
-                # With a shared model instance, we simply prepend to the prompt string for "Stateless" RAG.
-                pass 
+                model = GenerativeModel(
+                    self._llm_model._model_name,
+                    system_instruction=system_instruction
+                )
+            else:
+                model = self._llm_model
 
-            response = self._llm_model.generate_content(
+            response = model.generate_content(
                 prompt,
                 generation_config=config,
                 safety_settings=safety_settings

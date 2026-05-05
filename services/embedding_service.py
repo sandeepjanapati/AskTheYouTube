@@ -1,7 +1,3 @@
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 import time
 import logging
 from typing import List, Dict, Any, Generator
@@ -10,7 +6,6 @@ from typing import List, Dict, Any, Generator
 from services.vertex_client import VertexClient
 from services.pinecone_client import PineconeClient
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 class EmbeddingService:
@@ -50,6 +45,7 @@ class EmbeddingService:
         logger.info(f"Processing embeddings for video {video_id}. Total documents: {len(documents)}")
 
         vectors_to_upsert = []
+        failed_chunks = 0
 
         # --- PHASE 1: Generate Embeddings ---
         # We batch this to respect Vertex AI request limits
@@ -73,9 +69,15 @@ class EmbeddingService:
                 time.sleep(0.1)
 
             except Exception as e:
-                logger.error(f"Failed to embed batch for video {video_id}: {e}")
-                # In production, you might want to retry or partial fail
+                failed_chunks += len(batch)
+                logger.error(f"Failed to embed batch of {len(batch)} chunks for video {video_id}: {e}")
                 continue
+
+        if failed_chunks > 0:
+            logger.warning(
+                f"WARNING: {failed_chunks}/{len(documents)} chunks failed to embed for video {video_id}. "
+                f"The video index will be INCOMPLETE — queries about content in dropped chunks will not work."
+            )
 
         # --- PHASE 2: Upsert to Pinecone ---
         

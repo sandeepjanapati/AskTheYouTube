@@ -4,8 +4,6 @@ import bisect
 from typing import List, Dict, Any, Tuple
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-# Configure structured logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 class ChunkingService:
